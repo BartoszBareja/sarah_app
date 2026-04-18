@@ -20,7 +20,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -101,11 +100,8 @@ class MainActivity : ComponentActivity() {
                                     selected = selected,
                                     onClick = {
                                         navController.navigate(item.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
+                                            popUpTo("home") { inclusive = true }
                                             launchSingleTop = true
-                                            restoreState = true
                                         }
                                     },
                                     icon = { Icon(item.icon, contentDescription = item.label) },
@@ -133,9 +129,8 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToProfile = { navController.navigate("profile") },
                                 onNavigateToChat = {
                                     navController.navigate("chat") {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        popUpTo("home") { inclusive = true }
                                         launchSingleTop = true
-                                        restoreState = true
                                     }
                                 },
                                 onNavigateToRateUs = { navController.navigate("rate_us") },
