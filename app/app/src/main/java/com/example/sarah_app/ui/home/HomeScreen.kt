@@ -122,7 +122,7 @@ private fun HomeCard(
             .background(background)
             .clickable { onClick() }
             .padding(16.dp),
-        contentAlignment = Alignment.BottomStart,
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = title,
