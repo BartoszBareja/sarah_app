@@ -188,3 +188,12 @@ Możesz dodać opcję "Połącz ponownie" w Settings lub długie przytrzymanie w
 - Używa NVIDIA API (`google/gemma-4-31b-it`) zamiast Anthropic Claude — klucz `NVIDIA_API_KEY`
 - System prompt: Sarah jako empatyczny asystent (odpowiada w języku użytkownika)
 - Generuje QR kod przy starcie (terminal ASCII + plik `sarah_qr.png`)
+
+## Poprawki (2026-04-19)
+
+### ChatViewModel — naprawa wysyłania wiadomości
+
+- **`withContext(Dispatchers.IO)`** — blokujące wywołania `HttpURLConnection` przeniesione na wątek IO; brak tego powodował `NetworkOnMainThreadException` (wiadomość wysyłała się, ale odpowiedź nie dochodziła)
+- **`readTimeout` 30s → 90s** — NVIDIA Gemma-4 z `enable_thinking=True` i `max_tokens=16384` może odpowiadać ponad 30 sekund
+- **explicit `Charsets.UTF_8`** w `OutputStreamWriter` i `BufferedReader` — domyślny charset systemu mógł powodować błędy przy polskich znakach
+- **`trimEnd('/')`** na URL przed doklejeniem `/chat` — zabezpieczenie przed podwójnym ukośnikiem gdy QR zakodował URL z trailing slash
