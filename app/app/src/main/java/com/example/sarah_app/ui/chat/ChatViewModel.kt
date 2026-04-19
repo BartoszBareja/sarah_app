@@ -5,11 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.sarah_app.data.repository.ChatRepository
 import com.example.sarah_app.data.repository.ServerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -80,22 +82,30 @@ class ChatViewModel @Inject constructor(
     private suspend fun sendToServer(serverUrl: String, messages: List<ChatMessage>) {
         try {
             val body = buildJsonBody(messages)
-            val url = URL("$serverUrl/chat")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                setRequestProperty("Content-Type", "application/json")
-                doOutput = true
-                connectTimeout = 10_000
-                readTimeout = 30_000
+            val baseUrl = serverUrl.trimEnd('/')
+            val url = URL("$baseUrl/chat")
+
+            val (responseCode, responseBody) = withContext(Dispatchers.IO) {
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    doOutput = true
+                    connectTimeout = 10_000
+                    readTimeout = 90_000
+                }
+                OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
+                val code = conn.responseCode
+                val text = if (code == 200) {
+                    conn.inputStream.bufferedReader(Charsets.UTF_8).readText()
+                } else {
+                    conn.errorStream?.bufferedReader(Charsets.UTF_8)?.readText() ?: "Nieznany błąd"
+                }
+                code to text
             }
 
-            OutputStreamWriter(conn.outputStream).use { it.write(body) }
-
-            if (conn.responseCode == 200) {
-                val responseText = conn.inputStream.bufferedReader().readText()
-                val json = JSONObject(responseText)
+            if (responseCode == 200) {
+                val json = JSONObject(responseBody)
                 val reply = json.getString("reply")
-
                 val assistantMsg = ChatMessage(role = "assistant", content = reply)
                 _uiState.value = _uiState.value.copy(
                     messages = _uiState.value.messages + assistantMsg,
@@ -103,10 +113,9 @@ class ChatViewModel @Inject constructor(
                 )
                 chatRepository.saveMessage(_uiState.value.sessionId, "assistant", reply)
             } else {
-                val error = conn.errorStream?.bufferedReader()?.readText() ?: "Nieznany błąd"
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = "Błąd serwera (${conn.responseCode}): $error",
+                    errorMessage = "Błąd serwera ($responseCode): $responseBody",
                 )
             }
         } catch (e: Exception) {
