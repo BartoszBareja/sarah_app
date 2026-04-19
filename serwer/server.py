@@ -2,21 +2,19 @@
 Sarah App – backend server
 - Przy starcie generuje QR kod z adresem IP:port
 - Aplikacja Android skanuje QR i wie gdzie wysyłać zapytania
-- Przekazuje wiadomości do Claude (Anthropic API) i zwraca odpowiedzi
+- Przekazuje wiadomości do Llama (NVIDIA API) i zwraca odpowiedzi
 """
 
 import os
 import socket
-import json
 import uuid
-import base64
-import requests
 from datetime import datetime
 from typing import Optional
 
 import qrcode
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
@@ -24,9 +22,13 @@ from pydantic import BaseModel
 # ---------------------------------------------------------------------------
 
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
-INVOKE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-MODEL = "google/gemma-4-31b-it"
+MODEL = "meta/llama-3.2-3b-instruct"
 PORT = 8000
+
+client = OpenAI(
+    base_url="https://integrate.api.nvidia.com/v1",
+    api_key=NVIDIA_API_KEY,
+)
 
 SARAH_SYSTEM_PROMPT = """You are Sarah, a warm and empathetic AI companion designed to support
 emotional wellbeing. You speak in a calm, friendly, and non-judgmental tone.
@@ -77,37 +79,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def call_nvidia_api(messages: list[dict], system: str) -> str:
-    headers = {
-        "Authorization": f"Bearer {NVIDIA_API_KEY}",
-        "Accept": "text/event-stream",
-    }
-    payload = {
-        "model": MODEL,
-        "messages": [{"role": "system", "content": system}] + messages,
-        "max_tokens": 16384,
-        "temperature": 1.00,
-        "top_p": 0.95,
-        "stream": True,
-        "chat_template_kwargs": {"enable_thinking": True},
-    }
-    response = requests.post(INVOKE_URL, headers=headers, json=payload, stream=True)
-    response.raise_for_status()
-
-    reply_parts = []
-    for line in response.iter_lines():
-        if not line:
-            continue
-        decoded = line.decode("utf-8")
-        if decoded.startswith("data: "):
-            data = decoded[6:]
-            if data == "[DONE]":
-                break
-            chunk = json.loads(data)
-            delta = chunk["choices"][0]["delta"].get("content", "")
-            if delta:
-                reply_parts.append(delta)
-    return "".join(reply_parts)
+def call_llm(messages: list[dict], system: str) -> str:
+    completion = client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "system", "content": system}] + messages,
+        temperature=0.2,
+        top_p=0.7,
+        max_tokens=1024,
+        stream=True,
+    )
+    parts = []
+    for chunk in completion:
+        if chunk.choices and chunk.choices[0].delta.content is not None:
+            parts.append(chunk.choices[0].delta.content)
+    return "".join(parts)
 
 @app.on_event("startup")
 async def startup():
@@ -128,7 +113,7 @@ async def startup():
 # ---------------------------------------------------------------------------
 
 class Message(BaseModel):
-    role: str       # "user" | "assistant"
+    role: str
     content: str
 
 class ChatRequest(BaseModel):
@@ -152,6 +137,9 @@ def health():
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
+    if not NVIDIA_API_KEY:
+        raise HTTPException(status_code=500, detail="NVIDIA_API_KEY not set")
+
     session_id = req.session_id or str(uuid.uuid4())
 
     system = SARAH_SYSTEM_PROMPT
@@ -161,9 +149,9 @@ async def chat(req: ChatRequest):
     messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
     try:
-        reply = call_nvidia_api(messages, system)
-    except requests.HTTPError as e:
-        raise HTTPException(status_code=502, detail=f"NVIDIA API error: {e}")
+        reply = call_llm(messages, system)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM error: {e}")
 
     ts = datetime.now().strftime('%H:%M:%S')
     print(f"[{ts}] User: {req.messages[-1].content[:60]}")
