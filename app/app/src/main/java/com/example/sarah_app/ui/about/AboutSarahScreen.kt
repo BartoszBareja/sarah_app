@@ -1,5 +1,8 @@
 package com.example.sarah_app.ui.about
 
+import android.net.Uri
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,19 +16,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.withLink
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.example.sarah_app.R
 import com.example.sarah_app.ui.theme.BackgroundCream
 import com.example.sarah_app.ui.theme.BrownText
-import com.example.sarah_app.ui.theme.SurfaceLight
 
 @Composable
 fun AboutSarahScreen() {
@@ -38,13 +44,24 @@ fun AboutSarahScreen() {
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Team photo placeholder
-        Spacer(
+        AndroidView(
+            factory = { ctx ->
+                VideoView(ctx).apply {
+                    val uri = Uri.parse("android.resource://${ctx.packageName}/${R.raw.about_video}")
+                    setVideoURI(uri)
+                    val mc = MediaController(ctx)
+                    setMediaController(mc)
+                    mc.setAnchorView(this)
+                    setOnPreparedListener { mp ->
+                        mp.isLooping = true
+                        start()
+                    }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(SurfaceLight),
+                .clip(RoundedCornerShape(12.dp)),
         )
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -57,7 +74,6 @@ fun AboutSarahScreen() {
             lineHeight = 26.sp,
             color = BrownText,
         )
-
 
         Text(
             buildAnnotatedString {

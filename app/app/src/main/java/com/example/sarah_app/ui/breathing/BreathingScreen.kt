@@ -1,5 +1,6 @@
 package com.example.sarah_app.ui.breathing
 
+import android.media.MediaPlayer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -18,7 +19,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,16 +34,19 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.sarah_app.ui.theme.AccentOrange
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sarah_app.R
 import com.example.sarah_app.ui.theme.BackgroundCream
 import com.example.sarah_app.ui.theme.BrownText
 import com.example.sarah_app.ui.theme.CardBrown
+import com.example.sarah_app.ui.theme.AccentOrange
 import com.example.sarah_app.ui.theme.PrimaryOrange
 import com.example.sarah_app.ui.theme.SurfaceLight
 import kotlinx.coroutines.delay
@@ -60,11 +66,39 @@ enum class BreathPhase(
 }
 
 @Composable
-fun BreathingScreen() {
+fun BreathingScreen(viewModel: BreathingViewModel = hiltViewModel()) {
+    val context = LocalContext.current
+    val soundVolume by viewModel.soundVolume.collectAsState()
+
     var isRunning by remember { mutableStateOf(false) }
     var phase by remember { mutableStateOf(BreathPhase.INHALE) }
     var secondsLeft by remember { mutableIntStateOf(4) }
     val ringProgress = remember { Animatable(0f) }
+    val playerRef = remember { mutableStateOf<MediaPlayer?>(null) }
+
+    // Start/stop MediaPlayer with breathing
+    DisposableEffect(isRunning) {
+        if (isRunning) {
+            val mp = MediaPlayer.create(context, R.raw.breathing_music).apply {
+                isLooping = true
+                setVolume(soundVolume, soundVolume)
+                start()
+            }
+            playerRef.value = mp
+            onDispose {
+                mp.stop()
+                mp.release()
+                playerRef.value = null
+            }
+        } else {
+            onDispose {}
+        }
+    }
+
+    // Apply volume changes to already-running player
+    LaunchedEffect(soundVolume) {
+        playerRef.value?.setVolume(soundVolume, soundVolume)
+    }
 
     // Ring animation loop + phase sequencing
     LaunchedEffect(isRunning) {
@@ -97,7 +131,6 @@ fun BreathingScreen() {
         label = "ringColor",
     )
 
-    // Scale derived directly from ring progress — perfectly in sync, no separate animator needed
     val pulseScale = when (phase) {
         BreathPhase.INHALE -> 0.85f + 0.30f * ringProgress.value
         BreathPhase.EXHALE -> 1.15f - 0.30f * ringProgress.value
@@ -112,7 +145,6 @@ fun BreathingScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        // Title / phase label
         Text(
             text = if (isRunning) phase.label else "Box Breathing",
             fontFamily = FontFamily.Serif,
@@ -122,13 +154,11 @@ fun BreathingScreen() {
             textAlign = TextAlign.Center,
         )
 
-        // Progress ring + pulsing circle
         Box(
             modifier = Modifier
                 .size(240.dp)
                 .drawBehind {
                     val stroke = Stroke(width = 10.dp.toPx(), cap = StrokeCap.Round)
-                    // Background ring
                     drawArc(
                         color = ringColor.copy(alpha = 0.15f),
                         startAngle = -90f,
@@ -136,7 +166,6 @@ fun BreathingScreen() {
                         useCenter = false,
                         style = stroke,
                     )
-                    // Progress arc
                     drawArc(
                         color = ringColor,
                         startAngle = -90f,
@@ -168,10 +197,8 @@ fun BreathingScreen() {
             }
         }
 
-        // Hint text
         Text(
-            text = if (isRunning) phase.hint
-            else "Feeling stressed?\nLet's breathe together.",
+            text = if (isRunning) phase.hint else "Feeling stressed?\nLet's breathe together.",
             fontSize = 16.sp,
             color = BrownText.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
@@ -179,7 +206,6 @@ fun BreathingScreen() {
             lineHeight = 22.sp,
         )
 
-        // START / STOP button
         Button(
             onClick = { isRunning = !isRunning },
             colors = ButtonDefaults.buttonColors(
