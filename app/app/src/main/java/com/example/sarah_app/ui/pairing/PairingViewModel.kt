@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sarah_app.data.repository.ServerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -12,10 +13,17 @@ class PairingViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
 ) : ViewModel() {
 
-    fun onServerUrlScanned(url: String, onSuccess: () -> Unit) {
+    val serverUrl: Flow<String?> = serverRepository.serverUrl
+
+    fun onServerUrlScanned(url: String) {
         viewModelScope.launch {
             serverRepository.saveServerUrl(url)
-            onSuccess()
+        }
+    }
+
+    fun disconnect() {
+        viewModelScope.launch {
+            serverRepository.clearServerUrl()
         }
     }
 }

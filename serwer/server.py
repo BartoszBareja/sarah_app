@@ -9,10 +9,11 @@ import os
 import socket
 import json
 import uuid
+import base64
+import requests
 from datetime import datetime
 from typing import Optional
 
-import anthropic
 import qrcode
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,8 +23,9 @@ from pydantic import BaseModel
 # Konfiguracja
 # ---------------------------------------------------------------------------
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-MODEL = "claude-sonnet-4-20250514"
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
+INVOKE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+MODEL = "google/gemma-4-31b-it"
 PORT = 8000
 
 SARAH_SYSTEM_PROMPT = """You are Sarah, a warm and empathetic AI companion designed to support
@@ -75,7 +77,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+def call_nvidia_api(messages: list[dict], system: str) -> str:
+    headers = {
+        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Accept": "text/event-stream",
+    }
+    payload = {
+        "model": MODEL,
+        "messages": [{"role": "system", "content": system}] + messages,
+        "max_tokens": 16384,
+        "temperature": 1.00,
+        "top_p": 0.95,
+        "stream": True,
+        "chat_template_kwargs": {"enable_thinking": True},
+    }
+    response = requests.post(INVOKE_URL, headers=headers, json=payload, stream=True)
+    response.raise_for_status()
+
+    reply_parts = []
+    for line in response.iter_lines():
+        if not line:
+            continue
+        decoded = line.decode("utf-8")
+        if decoded.startswith("data: "):
+            data = decoded[6:]
+            if data == "[DONE]":
+                break
+            chunk = json.loads(data)
+            delta = chunk["choices"][0]["delta"].get("content", "")
+            if delta:
+                reply_parts.append(delta)
+    return "".join(reply_parts)
 
 @app.on_event("startup")
 async def startup():
@@ -129,15 +161,9 @@ async def chat(req: ChatRequest):
     messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
     try:
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=512,
-            system=system,
-            messages=messages,
-        )
-        reply = response.content[0].text
-    except anthropic.APIError as e:
-        raise HTTPException(status_code=502, detail=f"Anthropic API error: {e}")
+        reply = call_nvidia_api(messages, system)
+    except requests.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"NVIDIA API error: {e}")
 
     ts = datetime.now().strftime('%H:%M:%S')
     print(f"[{ts}] User: {req.messages[-1].content[:60]}")

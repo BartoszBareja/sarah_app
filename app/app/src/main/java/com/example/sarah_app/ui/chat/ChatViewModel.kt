@@ -2,6 +2,7 @@ package com.example.sarah_app.ui.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.sarah_app.data.repository.ChatRepository
 import com.example.sarah_app.data.repository.ServerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,7 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.UUID
 import javax.inject.Inject
 
 data class ChatMessage(
@@ -25,16 +27,19 @@ data class ChatUiState(
     val inputText: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val sessionId: String? = null,
+    val sessionId: String = UUID.randomUUID().toString(),
 )
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
+    private val chatRepository: ChatRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    private val sessionCreatedAt = System.currentTimeMillis()
 
     fun onInputChanged(text: String) {
         _uiState.value = _uiState.value.copy(inputText = text)
@@ -55,11 +60,16 @@ class ChatViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
+            val sessionId = _uiState.value.sessionId
+            val preview = text.take(60)
+            chatRepository.ensureSessionExists(sessionId, preview, sessionCreatedAt)
+            chatRepository.saveMessage(sessionId, "user", text)
+
             val serverUrl = serverRepository.serverUrl.first()
             if (serverUrl == null) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = "Brak połączenia z serwerem. Wróć i zeskanuj kod QR.",
+                    errorMessage = "Brak połączenia z serwerem. Przejdź do Ustawień i zeskanuj kod QR.",
                 )
                 return@launch
             }
@@ -85,14 +95,13 @@ class ChatViewModel @Inject constructor(
                 val responseText = conn.inputStream.bufferedReader().readText()
                 val json = JSONObject(responseText)
                 val reply = json.getString("reply")
-                val sessionId = json.getString("session_id")
 
                 val assistantMsg = ChatMessage(role = "assistant", content = reply)
                 _uiState.value = _uiState.value.copy(
                     messages = _uiState.value.messages + assistantMsg,
                     isLoading = false,
-                    sessionId = sessionId,
                 )
+                chatRepository.saveMessage(_uiState.value.sessionId, "assistant", reply)
             } else {
                 val error = conn.errorStream?.bufferedReader()?.readText() ?: "Nieznany błąd"
                 _uiState.value = _uiState.value.copy(
@@ -112,8 +121,8 @@ class ChatViewModel @Inject constructor(
         val messagesArray = messages.joinToString(",") { msg ->
             """{"role":"${msg.role}","content":${JSONObject.quote(msg.content)}}"""
         }
-        val sessionPart = _uiState.value.sessionId?.let { """"session_id":"$it",""" } ?: ""
-        return """{${sessionPart}"messages":[$messagesArray]}"""
+        val sessionId = _uiState.value.sessionId
+        return """{"session_id":"$sessionId","messages":[$messagesArray]}"""
     }
 
     fun dismissError() {

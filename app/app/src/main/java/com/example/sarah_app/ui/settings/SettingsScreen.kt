@@ -22,7 +22,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -51,7 +52,10 @@ import com.example.sarah_app.ui.theme.PrimaryOrange
 import com.example.sarah_app.ui.theme.SurfaceLight
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    onNavigateToPairing: () -> Unit = {},
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
     val soundVolume by viewModel.soundVolume.collectAsState()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
     val language by viewModel.language.collectAsState()
@@ -71,7 +75,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
 
         SettingCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.VolumeUp, contentDescription = null, tint = BrownText)
+                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = BrownText)
                 Text(
                     "  Sound",
                     fontWeight = FontWeight.SemiBold,
@@ -145,6 +149,25 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         },
                     )
                 }
+            }
+        }
+
+        SettingCard(onClick = onNavigateToPairing) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Wifi, contentDescription = null, tint = BrownText)
+                    Text(
+                        "  Server connection",
+                        fontWeight = FontWeight.SemiBold,
+                        color = BrownText,
+                        fontSize = 16.sp,
+                    )
+                }
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = BrownText)
             }
         }
 

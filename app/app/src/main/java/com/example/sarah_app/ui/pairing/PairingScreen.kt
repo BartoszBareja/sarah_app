@@ -14,15 +14,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +47,7 @@ import com.example.sarah_app.ui.theme.AccentOrange
 import com.example.sarah_app.ui.theme.BackgroundCream
 import com.example.sarah_app.ui.theme.BrownText
 import com.example.sarah_app.ui.theme.PrimaryOrange
+import com.example.sarah_app.ui.theme.SurfaceLight
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -55,9 +59,68 @@ import java.util.concurrent.Executors
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun PairingScreen(
-    onPaired: () -> Unit,
     viewModel: PairingViewModel = hiltViewModel(),
 ) {
+    val serverUrl by viewModel.serverUrl.collectAsState(initial = null)
+
+    if (serverUrl != null) {
+        PairedContent(
+            url = serverUrl!!,
+            onDisconnect = { viewModel.disconnect() },
+        )
+    } else {
+        ScannerContent(onQrDetected = { url -> viewModel.onServerUrlScanned(url) })
+    }
+}
+
+@Composable
+private fun PairedContent(url: String, onDisconnect: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundCream)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("✅", fontSize = 64.sp)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Połączono z serwerem",
+            fontFamily = FontFamily.Serif,
+            fontWeight = FontWeight.Bold,
+            fontSize = 26.sp,
+            color = BrownText,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(SurfaceLight)
+                .padding(16.dp),
+        ) {
+            Text(
+                text = url,
+                fontSize = 15.sp,
+                color = BrownText,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Spacer(modifier = Modifier.height(32.dp))
+        OutlinedButton(
+            onClick = onDisconnect,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryOrange),
+        ) {
+            Text("Rozłącz i sparuj ponownie", fontSize = 15.sp)
+        }
+    }
+}
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+private fun ScannerContent(onQrDetected: (String) -> Unit) {
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
     var scanned by remember { mutableStateOf(false) }
 
@@ -75,10 +138,7 @@ fun PairingScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(
-            text = "🐼",
-            fontSize = 64.sp,
-        )
+        Text("🐼", fontSize = 64.sp)
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "Połącz z serwerem",
@@ -102,7 +162,7 @@ fun PairingScreen(
                 onQrDetected = { url ->
                     if (!scanned && url.startsWith("http")) {
                         scanned = true
-                        viewModel.onServerUrlScanned(url, onPaired)
+                        onQrDetected(url)
                     }
                 }
             )
@@ -157,11 +217,9 @@ private fun QrScannerBox(onQrDetected: (String) -> Unit) {
 
                 cameraProviderFuture.addListener({
                     val cameraProvider = cameraProviderFuture.get()
-
                     val preview = Preview.Builder().build().also {
                         it.surfaceProvider = previewView.surfaceProvider
                     }
-
                     val imageAnalysis = ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
@@ -174,7 +232,11 @@ private fun QrScannerBox(onQrDetected: (String) -> Unit) {
                             )
                             scanner.process(image)
                                 .addOnSuccessListener { barcodes ->
-                                    barcodes.firstOrNull { it.valueType == Barcode.TYPE_URL || it.rawValue?.startsWith("http") == true }
+                                    barcodes
+                                        .firstOrNull {
+                                            it.valueType == Barcode.TYPE_URL ||
+                                                it.rawValue?.startsWith("http") == true
+                                        }
                                         ?.rawValue
                                         ?.let { onQrDetected(it) }
                                 }
