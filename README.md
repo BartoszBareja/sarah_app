@@ -161,3 +161,30 @@ val startRoute = if (serverUrlSaved) "home" else "pairing"
 serverRepository.clearServerUrl()
 ```
 Możesz dodać opcję "Połącz ponownie" w Settings lub długie przytrzymanie w ChatScreen.
+
+
+---
+
+## 5. Zmiany (2026-04-19)
+
+### Android
+
+- **`build.gradle.kts` + `libs.versions.toml`** — dodano CameraX 1.4.2, ML Kit barcode-scanning 17.3.0, Accompanist Permissions 0.36.0, lifecycle-runtime-compose 2.10.0
+- **`AndroidManifest.xml`** — uprawnienia `INTERNET`, `CAMERA`, atrybut `networkSecurityConfig`
+- **`res/xml/network_security_config.xml`** — zezwolenie na HTTP w sieci lokalnej
+- **`MainActivity.kt`** — route `"pairing"`, startDestination dynamicznie (brak URL → pairing, URL zapisany → home), `ServerRepository` wstrzykiwany przez Hilt
+- **`PairingScreen.kt`** — dwa stany: skaner QR (nie sparowany) / informacja o serwerze + przycisk „Rozłącz i sparuj ponownie" (sparowany)
+- **`PairingViewModel.kt`** — eksponuje `serverUrl: Flow`, dodano `disconnect()`
+- **`SettingsScreen.kt`** — kafelek „Server connection" nawiguje do `"pairing"`
+- **`data/db/`** — nowe encje `ChatSessionEntity`, `ChatMessageEntity`, DAO-sy `ChatSessionDao`, `ChatMessageDao`; `AppDatabase` v2 z `fallbackToDestructiveMigration`
+- **`data/repository/ChatRepository.kt`** — zapis i odczyt sesji + wiadomości z Room
+- **`di/DatabaseModule.kt`** — dostarcza `ChatSessionDao`, `ChatMessageDao`
+- **`ChatViewModel.kt`** — zapisuje wiadomości do Room; `sessionId` generowany raz na instancję; wysyłany w każdym requeście
+- **`ChatHistoryViewModel.kt`** — nowy, ładuje sesje z Room przez `ChatRepository`
+- **`ChatHistoryScreen.kt`** — prawdziwe dane z Room: lista kart z podglądem i datą sesji
+
+### Backend (`server.py`)
+
+- Używa NVIDIA API (`google/gemma-4-31b-it`) zamiast Anthropic Claude — klucz `NVIDIA_API_KEY`
+- System prompt: Sarah jako empatyczny asystent (odpowiada w języku użytkownika)
+- Generuje QR kod przy starcie (terminal ASCII + plik `sarah_qr.png`)
