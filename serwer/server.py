@@ -19,15 +19,13 @@ from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
 # Konfiguracja
-# ---------------------------------------------------------------------------
-
-NVIDIA_API_KEY = "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"
+# -------------
 MODEL = "meta/llama-3.2-3b-instruct"
 PORT = 8000
 
 client = OpenAI(
     base_url="https://integrate.api.nvidia.com/v1",
-    api_key="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",
+    api_key="",
 )
 
 SARAH_SYSTEM_PROMPT = """You are Sarah, a warm and empathetic AI companion designed to support
