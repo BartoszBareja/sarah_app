@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -37,6 +38,7 @@ import com.example.sarah_app.ui.chat.ChatHistoryScreen
 import com.example.sarah_app.ui.chat.ChatScreen
 import com.example.sarah_app.ui.components.SharedTopBar
 import com.example.sarah_app.ui.home.HomeScreen
+import com.example.sarah_app.ui.gallery.GalleryScreen
 import com.example.sarah_app.ui.pairing.PairingScreen
 import com.example.sarah_app.ui.profile.ProfileScreen
 import com.example.sarah_app.ui.rateus.RateUsScreen
@@ -55,6 +57,7 @@ data class NavItem(val route: String, val label: String, val icon: ImageVector)
 val bottomNavItems = listOf(
     NavItem("home", "Home", Icons.Default.Home),
     NavItem("chat", "Chat", Icons.AutoMirrored.Filled.Chat),
+    NavItem("gallery", "Gallery", Icons.Default.PhotoLibrary),
     NavItem("settings", "Settings", Icons.Default.Settings),
 )
 
@@ -67,6 +70,7 @@ val screenTitles = mapOf(
     "settings" to "Settings",
     "rate_us" to "Rate Us",
     "about_sarah" to "About Sarah",
+    "gallery" to "Gallery",
     "pairing" to "Server Connection",
 )
 
@@ -180,6 +184,7 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("rate_us") { RateUsScreen() }
                         composable("about_sarah") { AboutSarahScreen() }
+                        composable("gallery") { GalleryScreen() }
                         composable("pairing") { PairingScreen() }
                     }
                 }
