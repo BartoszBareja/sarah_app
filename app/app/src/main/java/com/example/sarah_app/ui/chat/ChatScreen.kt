@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -35,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sarah_app.ui.theme.AccentOrange
 import com.example.sarah_app.ui.theme.BackgroundCream
@@ -69,12 +72,11 @@ fun ChatScreen(
             .imePadding()
             .navigationBarsPadding(),
     ) {
-        // Pusty ekran — awatar i powitanie
         if (uiState.messages.isEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 32.dp),
+                    .padding(vertical = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
@@ -83,18 +85,33 @@ fun ChatScreen(
                     fontWeight = FontWeight.Bold,
                     fontSize = 28.sp,
                     color = BrownText,
+                    modifier = Modifier
+                        .offset(x = 0.dp, y = 50.dp)
                 )
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(36.dp))
                 Box(
                     modifier = Modifier
-                        .size(160.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(AccentOrange.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center,
+                        .fillMaxWidth()
+                        .offset(y = 50.dp)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    AccentOrange.copy(alpha = 0.7f),
+                                    Color.Transparent
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("🐼", fontSize = 80.sp)
+                    AsyncImage(
+                        model = "file:///android_asset/panda/sarah.gif",
+                        contentDescription = "Sarah",
+                        modifier = Modifier
+                            .size(240.dp)
+                            .offset(x = 15.dp, y = 0.dp)
+                    )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
 

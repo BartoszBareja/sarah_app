@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.AsyncImage
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sarah_app.ui.theme.AccentOrange
@@ -138,8 +139,12 @@ private fun ScannerContent(onQrDetected: (String) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("🐼", fontSize = 64.sp)
-        Spacer(modifier = Modifier.height(16.dp))
+        AsyncImage(
+            model = "file:///android_asset/panda/sam-leb.png",
+            contentDescription = "Sarah",
+            modifier = Modifier.size(150.dp)
+        )
+        Spacer(modifier = Modifier.height(0.dp))
         Text(
             text = "Połącz z serwerem",
             fontFamily = FontFamily.Serif,

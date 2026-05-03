@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sarah_app.R
 import com.example.sarah_app.ui.theme.BackgroundCream
@@ -192,7 +193,11 @@ fun BreathingScreen(viewModel: BreathingViewModel = hiltViewModel()) {
                         color = ringColor,
                     )
                 } else {
-                    Text("🐼", fontSize = 72.sp)
+                    AsyncImage(
+                        model = "file:///android_asset/panda/breathing-sarah.gif",
+                        contentDescription = "Breathing Sarah",
+                        modifier = Modifier.size(150.dp)
+                    )
                 }
             }
         }

@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.sarah_app.ui.theme.AccentOrange
 import com.example.sarah_app.ui.theme.BackgroundCream
 import com.example.sarah_app.ui.theme.BrownText
@@ -152,18 +153,18 @@ private fun ChatCard(
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             fontFamily = FontFamily.Serif,
-            modifier = Modifier.align(Alignment.CenterStart),
-        )
-        // Red panda face placeholder
-        Box(
             modifier = Modifier
-                .size(80.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AccentOrange.copy(alpha = 0.3f))
-                .align(Alignment.CenterEnd),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("🐼", fontSize = 32.sp)
-        }
+                .align(Alignment.CenterStart)
+                .padding(start = 12.dp),
+        )
+        // Red panda face
+        AsyncImage(
+            model = "file:///android_asset/panda/sam-leb.png",
+            contentDescription = "Sarah Icon",
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 5.dp)
+                .size(110.dp)
+        )
     }
 }
