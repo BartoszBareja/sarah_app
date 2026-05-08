@@ -1,5 +1,13 @@
 package com.example.sarah_app.ui.chat
 
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,6 +28,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -33,17 +41,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sarah_app.ui.theme.AccentOrange
@@ -51,6 +62,7 @@ import com.example.sarah_app.ui.theme.BackgroundCream
 import com.example.sarah_app.ui.theme.BrownText
 import com.example.sarah_app.ui.theme.PrimaryOrange
 import com.example.sarah_app.ui.theme.SurfaceLight
+import java.util.Locale
 
 @Composable
 fun ChatScreen(
@@ -58,6 +70,9 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+
+    val speechAvailable = remember { SpeechRecognizer.isRecognitionAvailable(context) }
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
@@ -65,12 +80,37 @@ fun ChatScreen(
         }
     }
 
+    val speechLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.let { viewModel.onInputChanged(it) }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) speechLauncher.launch(buildSpeechIntent())
+    }
+
+    fun startSpeechRecognition() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED) {
+            speechLauncher.launch(buildSpeechIntent())
+        } else {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundCream)
-            .imePadding()
-            .navigationBarsPadding(),
+            .imePadding(),
     ) {
         if (uiState.messages.isEmpty()) {
             Column(
@@ -115,7 +155,6 @@ fun ChatScreen(
             }
         }
 
-        // Lista wiadomości
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -128,7 +167,6 @@ fun ChatScreen(
                 MessageBubble(message)
             }
 
-            // "Sarah pisze..."
             if (uiState.isLoading) {
                 item {
                     Row(
@@ -152,7 +190,6 @@ fun ChatScreen(
             }
         }
 
-        // Pole do wpisywania
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -182,21 +219,30 @@ fun ChatScreen(
                 modifier = Modifier.weight(1f),
                 maxLines = 4,
             )
-            IconButton(
-                onClick = viewModel::sendMessage,
-                enabled = uiState.inputText.isNotBlank() && !uiState.isLoading,
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Wyślij",
-                    tint = if (uiState.inputText.isNotBlank() && !uiState.isLoading)
-                        PrimaryOrange else BrownText.copy(alpha = 0.3f),
-                )
+            if (uiState.inputText.isBlank() && !uiState.isLoading && speechAvailable) {
+                IconButton(onClick = ::startSpeechRecognition) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Speech to text",
+                        tint = PrimaryOrange,
+                    )
+                }
+            } else {
+                IconButton(
+                    onClick = viewModel::sendMessage,
+                    enabled = uiState.inputText.isNotBlank() && !uiState.isLoading,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send",
+                        tint = if (uiState.inputText.isNotBlank() && !uiState.isLoading)
+                            PrimaryOrange else BrownText.copy(alpha = 0.3f),
+                    )
+                }
             }
         }
     }
 
-    // Dialog błędu
     uiState.errorMessage?.let { error ->
         AlertDialog(
             onDismissRequest = viewModel::dismissError,
@@ -207,6 +253,13 @@ fun ChatScreen(
             },
         )
     }
+}
+
+private fun buildSpeechIntent() = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+    putExtra(RecognizerIntent.EXTRA_PROMPT, "What would you like to say?")
 }
 
 @Composable
